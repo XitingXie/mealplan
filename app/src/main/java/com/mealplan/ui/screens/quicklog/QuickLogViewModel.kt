@@ -1,5 +1,6 @@
 package com.mealplan.ui.screens.quicklog
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -23,7 +24,8 @@ data class QuickLogUiState(
     val notes: String = "",
     val isLoading: Boolean = false,
     val isSuccess: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val photoUri: Uri? = null
 )
 
 @HiltViewModel
@@ -94,5 +96,13 @@ class QuickLogViewModel @Inject constructor(
             hour < 15 -> MealType.LUNCH
             else -> MealType.DINNER
         }
+    }
+
+    fun onPhotoTaken(uri: Uri) {
+        _uiState.update { it.copy(photoUri = uri) }
+    }
+
+    fun clearPhoto() {
+        _uiState.update { it.copy(photoUri = null) }
     }
 }

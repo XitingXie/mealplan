@@ -1,5 +1,6 @@
 package com.mealplan.ui.screens.scanner
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mealplan.data.repository.MealPlanRepository
@@ -15,7 +16,8 @@ import javax.inject.Inject
 data class ScannerUiState(
     val selectedIngredients: Set<String> = emptySet(),
     val suggestedRecipes: List<Recipe> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val capturedPhotoUri: Uri? = null
 )
 
 @HiltViewModel
@@ -72,5 +74,13 @@ class ScannerViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    fun onPhotoTaken(uri: Uri) {
+        _uiState.update { it.copy(capturedPhotoUri = uri) }
+    }
+
+    fun clearPhoto() {
+        _uiState.update { it.copy(capturedPhotoUri = null) }
     }
 }

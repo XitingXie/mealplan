@@ -1,5 +1,6 @@
 package com.mealplan.ui.screens.quicklog
 
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -14,26 +15,78 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import com.mealplan.domain.model.MealType
+import com.mealplan.ui.components.CameraPreview
 import com.mealplan.ui.components.LoadingButton
 import com.mealplan.ui.theme.*
 import java.time.LocalTime
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun QuickLogScreen(
     onNavigateBack: () -> Unit,
     viewModel: QuickLogViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showCamera by remember { mutableStateOf(false) }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA) { granted ->
+        if (granted) {
+            showCamera = true
+        }
+    }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             onNavigateBack()
         }
+    }
+
+    if (showCamera) {
+        CameraPreview(
+            onImageCaptured = { uri ->
+                viewModel.onPhotoTaken(uri)
+                showCamera = false
+            },
+            onError = { /* Handle error */ },
+            onClose = { showCamera = false }
+        )
+        return
+    }
+
+    if (showPermissionRationale) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRationale = false },
+            title = { Text("Camera Permission Required") },
+            text = { Text("We need camera access to take photos of your meals. Please grant permission to use this feature.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermissionRationale = false
+                        cameraPermissionState.launchPermissionRequest()
+                    }
+                ) {
+                    Text("Grant Permission")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionRationale = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 
     Scaffold(
@@ -71,14 +124,43 @@ fun QuickLogScreen(
                 )
             }
 
-            // Photo option
+            // Photo option or captured photo
             item {
-                LogOptionCard(
-                    icon = Icons.Outlined.CameraAlt,
-                    title = "Take a photo",
-                    description = "Snap a pic of your meal",
-                    onClick = { /* Camera integration */ }
-                )
+                if (uiState.photoUri != null) {
+                    CapturedPhotoCard(
+                        photoUri = uiState.photoUri.toString(),
+                        onRetake = {
+                            viewModel.clearPhoto()
+                            if (cameraPermissionState.status.isGranted) {
+                                showCamera = true
+                            } else if (cameraPermissionState.status.shouldShowRationale) {
+                                showPermissionRationale = true
+                            } else {
+                                cameraPermissionState.launchPermissionRequest()
+                            }
+                        },
+                        onClear = { viewModel.clearPhoto() }
+                    )
+                } else {
+                    LogOptionCard(
+                        icon = Icons.Outlined.CameraAlt,
+                        title = "Take a photo",
+                        description = "Snap a pic of your meal",
+                        onClick = {
+                            when {
+                                cameraPermissionState.status.isGranted -> {
+                                    showCamera = true
+                                }
+                                cameraPermissionState.status.shouldShowRationale -> {
+                                    showPermissionRationale = true
+                                }
+                                else -> {
+                                    cameraPermissionState.launchPermissionRequest()
+                                }
+                            }
+                        }
+                    )
+                }
             }
 
             // Voice option
@@ -154,6 +236,59 @@ fun QuickLogScreen(
 
             item {
                 Spacer(modifier = Modifier.height(24.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CapturedPhotoCard(
+    photoUri: String,
+    onRetake: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SoftLavenderTint)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(photoUri)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Captured meal photo",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onClear,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Clear")
+                }
+                Button(
+                    onClick = onRetake,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftSageGreen)
+                ) {
+                    Text("Retake")
+                }
             }
         }
     }

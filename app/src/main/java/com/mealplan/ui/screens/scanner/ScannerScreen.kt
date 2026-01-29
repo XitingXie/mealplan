@@ -1,5 +1,6 @@
 package com.mealplan.ui.screens.scanner
 
+import android.Manifest
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,14 +16,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
+import com.google.accompanist.permissions.shouldShowRationale
 import com.mealplan.domain.model.Recipe
+import com.mealplan.ui.components.CameraPreview
 import com.mealplan.ui.components.DifficultyIndicator
 import com.mealplan.ui.theme.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun ScannerScreen(
     onNavigateBack: () -> Unit,
@@ -30,6 +41,49 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showCamera by remember { mutableStateOf(false) }
+    var showPermissionRationale by remember { mutableStateOf(false) }
+
+    val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA) { granted ->
+        if (granted) {
+            showCamera = true
+        }
+    }
+
+    if (showCamera) {
+        CameraPreview(
+            onImageCaptured = { uri ->
+                viewModel.onPhotoTaken(uri)
+                showCamera = false
+            },
+            onError = { /* Handle error */ },
+            onClose = { showCamera = false }
+        )
+        return
+    }
+
+    if (showPermissionRationale) {
+        AlertDialog(
+            onDismissRequest = { showPermissionRationale = false },
+            title = { Text("Camera Permission Required") },
+            text = { Text("We need camera access to scan your fridge and identify ingredients. Please grant permission to use this feature.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showPermissionRationale = false
+                        cameraPermissionState.launchPermissionRequest()
+                    }
+                ) {
+                    Text("Grant Permission")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionRationale = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -57,11 +111,40 @@ fun ScannerScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Camera scan placeholder
+            // Camera scan card or captured photo
             item {
-                CameraScanCard(
-                    onScanClick = { /* Camera integration - placeholder */ }
-                )
+                if (uiState.capturedPhotoUri != null) {
+                    CapturedPhotoCard(
+                        photoUri = uiState.capturedPhotoUri.toString(),
+                        onRetake = {
+                            viewModel.clearPhoto()
+                            if (cameraPermissionState.status.isGranted) {
+                                showCamera = true
+                            } else if (cameraPermissionState.status.shouldShowRationale) {
+                                showPermissionRationale = true
+                            } else {
+                                cameraPermissionState.launchPermissionRequest()
+                            }
+                        },
+                        onClear = { viewModel.clearPhoto() }
+                    )
+                } else {
+                    CameraScanCard(
+                        onScanClick = {
+                            when {
+                                cameraPermissionState.status.isGranted -> {
+                                    showCamera = true
+                                }
+                                cameraPermissionState.status.shouldShowRationale -> {
+                                    showPermissionRationale = true
+                                }
+                                else -> {
+                                    cameraPermissionState.launchPermissionRequest()
+                                }
+                            }
+                        }
+                    )
+                }
             }
 
             // Quick ingredient picker
@@ -148,14 +231,68 @@ private fun CameraScanCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = SoftGray
             )
+        }
+    }
+}
+
+@Composable
+private fun CapturedPhotoCard(
+    photoUri: String,
+    onRetake: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = SoftLavenderTint)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(photoUri)
+                    .crossfade(true)
+                    .build(),
+                contentDescription = "Captured photo",
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(12.dp)),
+                contentScale = ContentScale.Crop
+            )
 
             Spacer(modifier = Modifier.height(12.dp))
 
             Text(
-                text = "(Coming soon)",
-                style = MaterialTheme.typography.labelSmall,
-                color = SoftGray
+                text = "Photo captured! AI analysis coming soon.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SoftGray,
+                textAlign = TextAlign.Center
             )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onClear,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Clear")
+                }
+                Button(
+                    onClick = onRetake,
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SoftSageGreen)
+                ) {
+                    Text("Retake Photo")
+                }
+            }
         }
     }
 }
