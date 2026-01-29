@@ -1,0 +1,19 @@
+# Android / Gradle
+**/build/
+**/.gradle/
+**/.idea/
+**/out/
+**/captures/
+
+# Local config
+local.properties
+*.keystore
+*.jks
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+
+# Firebase (avoid committing secrets)
+app/google-services.json
+

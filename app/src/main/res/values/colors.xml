@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Primary Colors -->
+    <color name="soft_sage_green">#8FBC8F</color>
+    <color name="soft_sage_green_dark">#6B8E6B</color>
+    <color name="warm_peach">#FFDAB9</color>
+
+    <!-- Background Colors -->
+    <color name="warm_cream">#FFF8F0</color>
+    <color name="soft_white">#FFFEFA</color>
+    <color name="soft_lavender_tint">#F5F0FF</color>
+
+    <!-- Accent Colors -->
+    <color name="soft_coral">#F4A460</color>
+    <color name="mint_green">#98D8AA</color>
+
+    <!-- Text Colors -->
+    <color name="warm_charcoal">#4A4A4A</color>
+    <color name="soft_gray">#7A7A7A</color>
+    <color name="light_gray">#BDBDBD</color>
+
+    <!-- Dark Mode Colors -->
+    <color name="soft_dark">#1E1E2E</color>
+    <color name="muted_navy">#2A2A3E</color>
+    <color name="muted_sage">#A8D5A2</color>
+
+    <!-- Standard Colors -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+</resources>
